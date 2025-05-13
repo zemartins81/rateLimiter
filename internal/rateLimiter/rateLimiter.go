@@ -6,7 +6,7 @@ import (
 	"os"
 	"strconv"
 	"time"
-
+	
 	"github.com/joho/godotenv"
 	"rateLimiter/infra/db"
 )
@@ -41,8 +41,11 @@ func (rl *RateLimiter) GetConfig() *LimiterConfig {
 
 // LoadConfigFromEnv carrega as configurações das variáveis de ambiente ou de um arquivo .env.
 func LoadConfigFromEnv() (*LimiterConfig, error) {
-	_ = godotenv.Load() // Carrega .env se existir, ignora erro se não existir
-
+	err := godotenv.Load()
+	if err != nil {
+		return nil, fmt.Errorf("erro ao carregar arquivo .env: %w", err)
+	}
+	
 	maxRequestsIPStr := os.Getenv("MAX_REQUESTS_PER_IP")
 	if maxRequestsIPStr == "" {
 		maxRequestsIPStr = "5" // Valor padrão
@@ -51,7 +54,7 @@ func LoadConfigFromEnv() (*LimiterConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("erro ao converter MAX_REQUESTS_PER_IP: %w", err)
 	}
-
+	
 	maxRequestsTokenStr := os.Getenv("MAX_REQUESTS_PER_TOKEN")
 	if maxRequestsTokenStr == "" {
 		maxRequestsTokenStr = "10" // Valor padrão
@@ -60,7 +63,7 @@ func LoadConfigFromEnv() (*LimiterConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("erro ao converter MAX_REQUESTS_PER_TOKEN: %w", err)
 	}
-
+	
 	blockDurationIPStr := os.Getenv("BLOCK_DURATION_IP_SECONDS")
 	if blockDurationIPStr == "" {
 		blockDurationIPStr = "300" // Valor padrão (5 minutos)
@@ -69,7 +72,7 @@ func LoadConfigFromEnv() (*LimiterConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("erro ao converter BLOCK_DURATION_IP_SECONDS: %w", err)
 	}
-
+	
 	blockDurationTokenStr := os.Getenv("BLOCK_DURATION_TOKEN_SECONDS")
 	if blockDurationTokenStr == "" {
 		blockDurationTokenStr = "300" // Valor padrão (5 minutos)
@@ -78,12 +81,12 @@ func LoadConfigFromEnv() (*LimiterConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("erro ao converter BLOCK_DURATION_TOKEN_SECONDS: %w", err)
 	}
-
+	
 	tokenHeaderName := os.Getenv("TOKEN_HEADER_NAME")
 	if tokenHeaderName == "" {
 		tokenHeaderName = "API_KEY"
 	}
-
+	
 	return &LimiterConfig{
 		MaxRequestsPerIP:          maxRequestsIP,
 		MaxRequestsPerToken:       maxRequestsToken,
@@ -98,7 +101,7 @@ func (rl *RateLimiter) Allow(ctx context.Context, identifier string, isToken boo
 	var maxRequests int
 	var blockDuration time.Duration
 	var keyPrefix string
-
+	
 	if isToken {
 		maxRequests = rl.config.MaxRequestsPerToken
 		blockDuration = time.Duration(rl.config.BlockDurationTokenSeconds) * time.Second
@@ -108,10 +111,10 @@ func (rl *RateLimiter) Allow(ctx context.Context, identifier string, isToken boo
 		blockDuration = time.Duration(rl.config.BlockDurationIPSeconds) * time.Second
 		keyPrefix = "ip_"
 	}
-
+	
 	key := keyPrefix + identifier
 	blockedKey := "blocked_" + key
-
+	
 	// Verifica se está bloqueado
 	isBlocked, err := rl.store.IsBlocked(ctx, blockedKey)
 	if err != nil {
@@ -120,12 +123,12 @@ func (rl *RateLimiter) Allow(ctx context.Context, identifier string, isToken boo
 	if isBlocked {
 		return false, nil // Bloqueado
 	}
-
+	
 	count, err := rl.store.Increment(ctx, key, time.Second) // Janela de 1 segundo
 	if err != nil {
 		return false, fmt.Errorf("erro ao incrementar contador: %w", err)
 	}
-
+	
 	if count > int64(maxRequests) {
 		err = rl.store.Block(ctx, blockedKey, blockDuration)
 		if err != nil {
@@ -135,6 +138,6 @@ func (rl *RateLimiter) Allow(ctx context.Context, identifier string, isToken boo
 		_ = rl.store.Reset(ctx, key)
 		return false, nil // Limite excedido
 	}
-
+	
 	return true, nil // Permitido
 }
