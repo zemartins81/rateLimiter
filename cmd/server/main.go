@@ -6,75 +6,83 @@ import (
 	"net"
 	"net/http"
 	"time"
-
+	
 	"github.com/go-redis/redis/v8"
 	"golang.org/x/net/context"
 )
-
-type RateLimiter struct {
-	client  *redis.Client
-	limit   int
-	window  time.Duration
-	context context.Context
-}
-
-func NewRatelimiter(
-	client *redis.Client,
-	limit int,
-	window time.Duration,
-) (rateLimiter *RateLimiter) {
-	return &RateLimiter{
-		client:  client,
-		limit:   limit,
-		window:  window,
-		context: context.Background(),
-	}
-
-}
-
-func (rl *RateLimiter) Allow(key string) bool {
-	pipe := rl.client.TxPipeline()
-
-	incr := pipe.Incr(rl.context, key)
-	pipe.Expire(rl.context, key, rl.window)
-
-	cmder, err := pipe.Exec(rl.context)
-	if err != nil {
-		panic(err)
-	}
-
-	return incr.Val() <= int64(rl.limit)
-
-}
-
-func rateLimiterMd(rl *RateLimiter, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
-		if !rl.Allow(clientIP) {
-			http.Error(w, "Too many requests", http.StatusTooManyRequests)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
 func main() {
-
-	client := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+	// Carregar configuração
+	config, err := ratelimiter.LoadConfigFromEnv()
+	if err != nil {
+		log.Fatalf("Erro ao carregar configuração: %v", err)
+	}
+	
+	// Configurar cliente Redis
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379" // Valor padrão se não estiver nas variáveis de ambiente
+	}
+	
+	rdb := redis.NewClient(&redis.Options{
+		Addr: redisAddr,
 	})
-	defer client.Close()
-
-	rateLimiter := NewRatelimiter(client, 10, 1*time.Minute)
-
+	
+	// Verificar conexão com o Redis
+	ctxRedis, cancelRedis := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelRedis()
+	if err := rdb.Ping(ctxRedis).Err(); err != nil {
+		log.Fatalf("Não foi possível conectar ao Redis em %s: %v", redisAddr, err)
+	}
+	log.Println("Conectado ao Redis com sucesso!")
+	
+	// Criar store e rate limiter
+	store := storage.NewRedisStore(rdb)
+	rl := ratelimiter.NewRateLimiter(config, store)
+	
+	// Configurar servidor HTTP
 	router := http.NewServeMux()
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello World!")
+		_, _ = fmt.Fprintln(w, "Olá! Este é um endpoint de teste do Rate Limiter.")
 	})
-
-	handler := rateLimiterMd(rateLimiter, router)
-
-	http.ListenAndServe(":8080", handler)
-
+	
+	// Aplicar o middleware de rate limiting
+	protectedHandler := mw.RateLimit(rl)(router)
+	
+	serverPort := os.Getenv("SERVER_PORT")
+	if serverPort == "" {
+		serverPort = "8080"
+	}
+	
+	srv := &http.Server{
+		Addr:    ":" + serverPort,
+		Handler: protectedHandler,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+	
+	// Goroutine para escutar por sinais de shutdown
+	go func() {
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		<-quit
+		log.Println("Servidor recebendo sinal de desligamento...")
+		
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Fatalf("Erro no desligamento gracioso do servidor: %v", err)
+		}
+		log.Println("Servidor desligado graciosamente.")
+		store.Close() // Fechar conexão com Redis
+		log.Println("Conexão com Redis fechada.")
+	}()
+	
+	log.Printf("Servidor escutando na porta %s...", serverPort)
+	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		log.Fatalf("Erro ao iniciar servidor HTTP: %v", err)
+	}
+	
+	log.Println("Servidor parou.")
 }
