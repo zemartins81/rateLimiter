@@ -6,6 +6,11 @@ WORKDIR /app
 # Copiar os arquivos do projeto
 COPY . .
 
+# Instalar dependências e compilar o aplicativo
+RUN go mod download
+RUN go build -o main ./cmd/server
+
 EXPOSE 8080
 
-CMD []
+# Executar o aplicativo
+CMD ["./main"]
