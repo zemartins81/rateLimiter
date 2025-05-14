@@ -25,11 +25,7 @@ func NewRateLimiter(config *config.LimiterConfig, store db.Store) *RateLimiter {
 
 // GetConfig retorna a configuração do rate limiter.
 func (rl *RateLimiter) GetConfig() *config.LimiterConfig {
-	limiterConfig, err := config.LoadConfigRateLimiter()
-	if err != nil {
-		panic("Erro ao ler as configurações do rate limiter: " + err.Error())
-	}
-	return limiterConfig
+	return rl.limiterConfig
 }
 
 // Allow verifica se uma requisição deve ser permitida.

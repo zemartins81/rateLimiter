@@ -18,13 +18,12 @@ type LimiterConfig struct {
 }
 
 func LoadConfigRateLimiter() (*LimiterConfig, error) {
-	err := godotenv.Load()
-	if err != nil {
-		panic("Erro ao ler o arquivo de configurações")
-	}
+	// Carrega o arquivo .env, mas não falha se ele não existir
+	_ = godotenv.Load()
 
 	maxRequestsIPStr := os.Getenv("MAX_REQUESTS_PER_IP")
 	if maxRequestsIPStr == "" {
+		fmt.Println("Aviso: MAX_REQUESTS_PER_IP não definido, usando valor padrão (5)")
 		maxRequestsIPStr = "5"
 	}
 	maxRequestsIP, err := strconv.Atoi(maxRequestsIPStr)
@@ -34,6 +33,7 @@ func LoadConfigRateLimiter() (*LimiterConfig, error) {
 
 	maxRequestsTokenStr := os.Getenv("MAX_REQUESTS_PER_TOKEN")
 	if maxRequestsTokenStr == "" {
+		fmt.Println("Aviso: MAX_REQUESTS_PER_TOKEN não definido, usando valor padrão (10)")
 		maxRequestsTokenStr = "10"
 	}
 	maxRequestsToken, err := strconv.Atoi(maxRequestsTokenStr)
@@ -43,6 +43,7 @@ func LoadConfigRateLimiter() (*LimiterConfig, error) {
 
 	blockDurationIPStr := os.Getenv("BLOCK_DURATION_IP_SECONDS")
 	if blockDurationIPStr == "" {
+		fmt.Println("Aviso: BLOCK_DURATION_IP_SECONDS não definido, usando valor padrão (300)")
 		blockDurationIPStr = "300"
 	}
 	blockDurationIP, err := strconv.Atoi(blockDurationIPStr)
@@ -52,6 +53,7 @@ func LoadConfigRateLimiter() (*LimiterConfig, error) {
 
 	blockDurationTokenStr := os.Getenv("BLOCK_DURATION_TOKEN_SECONDS")
 	if blockDurationTokenStr == "" {
+		fmt.Println("Aviso: BLOCK_DURATION_TOKEN_SECONDS não definido, usando valor padrão (300)")
 		blockDurationTokenStr = "300"
 	}
 	blockDurationToken, err := strconv.Atoi(blockDurationTokenStr)
@@ -61,6 +63,7 @@ func LoadConfigRateLimiter() (*LimiterConfig, error) {
 
 	tokenHeaderName := os.Getenv("TOKEN_HEADER_NAME")
 	if tokenHeaderName == "" {
+		fmt.Println("Aviso: TOKEN_HEADER_NAME não definido, usando valor padrão (API_KEY)")
 		tokenHeaderName = "API_KEY"
 	}
 
