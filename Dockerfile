@@ -7,7 +7,7 @@ WORKDIR /app
 COPY . .
 
 # Instalar dependências e compilar o aplicativo
-RUN go mod download
+RUN go mod tidy
 RUN go build -o main ./cmd/server
 
 EXPOSE 8080
