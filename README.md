@@ -10,6 +10,43 @@ Este é um sistema de limitação de taxa (rate limiter) para APIs web, implemen
 - Armazenamento de contadores em Redis
 - Suporte para bloqueio temporário após exceder o limite
 
-## Configuração
+## Como baixar o repositório
 
-As configurações do rate limiter podem ser definidas através de variáveis de ambiente ou de um arquivo `.env`:
+Para obter uma cópia local do projeto, clone o repositório usando o seguinte comando:
+
+```bash
+git clone https://github.com/zemartins81/rateLimiter.git
+cd rateLimiter
+```
+
+Copie o arquivo .env.example e renomeie como .env
+
+```bash
+cp .env.example .env
+```
+
+Ajuste as variáveis de ambiente conforme desejar.
+
+Para executar o projeto:
+
+```bash
+docker-compose up -d
+```
+
+Para executar os testes, primeiramente precisamos tornar o arquivo test_ratelimiter.sh executável:
+```bash
+sudo chmod +x ./tests/functional/test_ratelimiter.sh
+```
+
+Em seguida, executar os testes:
+```bash
+./tests/functional/test_ratelimiter.sh
+```
+
+Interromper a execução dos containers:
+```bash
+docker-compose down
+```
+
+
+
