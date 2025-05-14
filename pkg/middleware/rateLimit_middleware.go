@@ -5,12 +5,11 @@ import (
 	"log"
 	"net"
 	"net/http"
-
 	"rateLimiter/internal/rateLimiter"
 )
 
 // RateLimit é o middleware que aplica o rate limiting.
-func RateLimit(rl *ratelimiter.RateLimiter) func(next http.Handler) http.Handler {
+func RateLimit(rl *rateLimiter.RateLimiter) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := context.Background()
