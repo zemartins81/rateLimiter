@@ -23,6 +23,9 @@ type mockRateLimiter struct {
 	mock.Mock
 }
 
+// Garantimos que mockRateLimiter implementa a interface RateLimiterInterface
+var _ rateLimiter.RateLimiterInterface = (*mockRateLimiter)(nil)
+
 func (m *mockRateLimiter) Allow(ctx context.Context, identifier string, isToken bool) (bool, error) {
 	args := m.Called(ctx, identifier, isToken)
 	return args.Bool(0), args.Error(1)
@@ -52,9 +55,7 @@ func Test_RateLimit_Middleware_Token(t *testing.T) {
 		w.Write([]byte("OK"))
 	})
 
-	middleware := RateLimit(mockRL)(nextHandler)
-
-	// Criar requisição com token
+	var middleware = RateLimit(mockRL)(nextHandler) // Criar requisição com token
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("API_KEY", "test-token")
 	rec := httptest.NewRecorder()

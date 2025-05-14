@@ -9,6 +9,12 @@ import (
 	"rateLimiter/infra/db"
 )
 
+// RateLimiterInterface define o contrato para implementações de rate limiter
+type RateLimiterInterface interface {
+	Allow(ctx context.Context, identifier string, isToken bool) (bool, error)
+	GetConfig() *config.LimiterConfig
+}
+
 // RateLimiter é a estrutura principal do rate limiter.
 type RateLimiter struct {
 	limiterConfig *config.LimiterConfig
@@ -25,6 +31,8 @@ func NewRateLimiter(config *config.LimiterConfig, store db.Store) *RateLimiter {
 
 // GetConfig retorna a configuração do rate limiter.
 func (rl *RateLimiter) GetConfig() *config.LimiterConfig {
+
+	fmt.Printf("limiterConfig: %v\n", rl.limiterConfig)
 	return rl.limiterConfig
 }
 
